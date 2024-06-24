@@ -65,28 +65,28 @@ void init_dice(void){
 // {
 //     srand(time(NULL));
 //     int num_dice, num_sides, roll_sum, crit_val;
-//     // while(TRUE)
-//     // {
-//     //     printf("Enter the number of sides, and the number of dice: ");
-//     //     scanf("%d %d", &num_sides, &num_dice);
+    // while(TRUE)
+    // {
+    //     printf("Enter the number of sides, and the number of dice: ");
+    //     scanf("%d %d", &num_sides, &num_dice);
 
-//     //     int rolls[num_dice];
-//     //     for (int j = 0; j < 10; j++)
-//     //     {
-//     //         fill_rolls(rolls, num_dice, num_sides);
-//     //         roll_sum = 0;
-//     //         for (int i = 0; i < num_dice; i++)
-//     //         {
-//     //             roll_sum += rolls[i];
-//     //             printf("%d + ", rolls[i]);
-//     //         }
-//     //         printf("= %d ", roll_sum);
-//     //         crit_val = find_crit(num_dice, num_sides, roll_sum, 1);
-//     //         if (crit_val == CRITICAL_FAILURE) printf("Critical Failure...");
-//     //         else if (crit_val == CRITICAL_SUCCESS) printf("Critical Success!");
-//     //         printf("\n");
-//     //     }
-//     // }
+    //     int rolls[num_dice];
+    //     for (int j = 0; j < 10; j++)
+    //     {
+    //         fill_rolls(rolls, num_dice, num_sides);
+    //         roll_sum = 0;
+    //         for (int i = 0; i < num_dice; i++)
+    //         {
+    //             roll_sum += rolls[i];
+    //             printf("%d + ", rolls[i]);
+    //         }
+    //         printf("= %d ", roll_sum);
+    //         crit_val = find_crit(num_dice, num_sides, roll_sum, 1);
+    //         if (crit_val == CRITICAL_FAILURE) printf("Critical Failure...");
+    //         else if (crit_val == CRITICAL_SUCCESS) printf("Critical Success!");
+    //         printf("\n");
+    //     }
+    // }
 //     boolean three = FALSE;
 //     boolean eighteen = FALSE;
 //     int i = 0;

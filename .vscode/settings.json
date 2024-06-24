@@ -1,5 +1,8 @@
 {
     "workbench.sideBar.location": "right",
     "editor.fontFamily": "'JetBrainsMono Nerd Font Mono', Consolas, 'Courier New', monospace",
-    "editor.fontLigatures": true
+    "editor.fontLigatures": true,
+    "files.associations": {
+        "typeinfo": "c"
+    }
 }

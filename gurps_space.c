@@ -21,6 +21,8 @@
  *                    888                                                     *
  *                    888                                                     *
  *                                                                            *
+ *                    GURPS Space from Steve Jackson Games                    *
+ *          Written by Zeigler, J. F., Cambias, J. L., & Upchurch, W.         *
 ******************************************************************************/
 
 
@@ -31,13 +33,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <stdint.h>
+#include "logging.h"
+#include <string.h>
+
+/******************************************************************************
+*                                   Defines                                   *
+******************************************************************************/
+#define NAME_SIZE 6 
 
 /******************************************************************************
 *                       Type Definitions and Constants                        *
 ******************************************************************************/
 
+
 /******************************************************************************
- * @struct StellarMassEntry
+ * @struct T_STELLAR_MASS_ENTRY
  * @brief Struct to store information about stellar mass based on dice rolls.
  * @param first_roll is the first roll
  * @param second_roll_min is the minimum range for the second roll
@@ -79,31 +90,40 @@ typedef struct T_MULTIPLE_STAR_ENTRY {
     int number_of_stars;
 } T_MULTIPLE_STAR_ENTRY;
 
-const T_MULTIPLE_STAR_ENTRY Star_num_table[] = {
+const T_MULTIPLE_STAR_ENTRY System_num_star_table[] = {
     { 3, 10, 1},
     {11, 15, 2},
     {16, 18, 3}
 };
 
 const int STELLAR_NUM_TABLE_SIZE =
-    sizeof(Star_num_table) / sizeof(T_MULTIPLE_STAR_ENTRY);
+    sizeof(System_num_star_table) / sizeof(T_MULTIPLE_STAR_ENTRY);
 
 typedef struct T_STELLAR_AGE_ENTRY {
     int roll_min;
     int roll_max;
-    char* p_population;
+    uint8_t population;
     double base_age;
     double step_a;
     double step_b;
 } T_STELLAR_AGE_ENTRY;
 
 const T_STELLAR_AGE_ENTRY Stellar_age_table[] = {
-    {3,   3, "Extreme Population I",      0.00, 0.00, 0.00},
-    {4,   6, "Young Population I",        0.10, 0.30, 0.05},
-    {7,  10, "Intermediate Poplation I",  2.00, 0.60, 0.10},
-    {11, 14, "Old Poplation I",           5.60, 0.60, 0.10},
-    {15, 17, "Intermediate Poplation II", 8.00, 0.60, 0.10},
-    {18, 18, "Extreme Poplation II",      10.0, 0.60, 0.10}
+    { 3,  3, 0, 0.00, 0.00, 0.00},
+    { 4,  6, 1, 0.10, 0.30, 0.05},
+    { 7, 10, 2, 2.00, 0.60, 0.10},
+    {11, 14, 3, 5.60, 0.60, 0.10},
+    {15, 17, 4, 8.00, 0.60, 0.10},
+    {18, 18, 5, 10.0, 0.60, 0.10}
+};
+
+const char* Stellar_population_table[] = {
+    "Extreme Population I",
+    "Young Population I",
+    "Intermediate Poplation I",
+    "Old Poplation I",
+    "Intermediate Poplation II",
+    "Extreme Poplation II"
 };
 
 const int STELLAR_AGE_TABLE_SIZE =
@@ -160,17 +180,63 @@ const T_STELLAR_CHARS_ENTRY Stellar_chars_table[] = {
 const int STELLAR_CHARS_TABLE_SIZE =
     sizeof(Stellar_chars_table) / sizeof(T_STELLAR_CHARS_ENTRY);
 
+const char* STAR_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+#define STAR_LETTERS_SIZE sizeof(STAR_LETTERS) - 1
+
+const char* STAR_NUMBERS = "0123456789ABCD";
+#define STAR_NUMBERS_SIZE sizeof(STAR_NUMBERS) - 1
+
+/******************************************************************************
+ * @struct T_STAR
+ * @brief Struct to store information about a star using GURPS Space generation
+ * tables.
+ * @param name A string containing the alpha-numeric name of the star
+ * @param mass A double representing the mass of the star in solar-masses
+ * @param population An integer representing the population around the star.
+ * See the population table
+ * @param base_age A double representing the current age of the star
+ * @param step_a A double representing the age at which the star enters its
+ * A-Step
+ * @param step_b A double representing the age at which the star enters its
+ * B-Step
+ * @param type A string that represents the star type. Uses the OBAFGKM model
+ * @param temp An integer that represents the star's temperature in kelvin
+ * @param l_min A double representing the minimum luminosity of the star.
+ * @param l_max A double representing the maximum luminosity of the star.
+ * @param main_span A double representing
+ * @param subgiant_span A double representing
+ * @param giant_span A double representing
+ * 
+ * @details This structure is used to store the results of generating a star...
+ *****************************************************************************/
+typedef struct T_STAR {
+    char name[NAME_SIZE + 1];
+    double mass;
+    uint8_t population;
+    double base_age;
+    double step_a;
+    double step_b;
+    char* type;
+    int temp;
+    double l_min;
+    double l_max;
+    double main_span;
+    double subgiant_span;
+    double giant_span;
+} T_STAR;
 
 /******************************************************************************
 *                             Function Prototypes                             *
 ******************************************************************************/
 // Stellar Classification 
-static int                      star_generate_num_stars(void);
+static int                      system_generate_num_stars(void);
+static void                     star_generate_name(char*);
 static double                   star_generate_mass(void);
 static T_STELLAR_AGE_ENTRY      star_generate_age(void);                
 static T_STELLAR_CHARS_ENTRY    star_generate_characteristics(double mass);
 static double*                  star_generate_companion_orbits(void);   // TODO
 static double*                  star_generate_orbital_zones(void);      // TODO
+       T_STAR                   star_generate_star(void);
 // Placing First Planets
 // Place Planetary Orbits
 // Place Worlds
@@ -187,15 +253,15 @@ static double*                  star_generate_orbital_zones(void);      // TODO
 /******************************************************************************
 *                              Private Functions                              *
 ******************************************************************************/
-static int star_generate_num_stars(void)
+static int system_generate_num_stars(void)
 {
     int roll = groll();
     for (int i = 0; i < STELLAR_NUM_TABLE_SIZE; i++)
     {
-        if ((roll >= Star_num_table[i].roll_min) &&
-            (roll <= Star_num_table[i].roll_max))
+        if ((roll >= System_num_star_table[i].roll_min) &&
+            (roll <= System_num_star_table[i].roll_max))
         {
-            return Star_num_table[i].number_of_stars;
+            return System_num_star_table[i].number_of_stars;
         }
     }
     return -1;
@@ -229,7 +295,7 @@ static T_STELLAR_AGE_ENTRY star_generate_age(void)
             return Stellar_age_table[i];
         }
     }
-    return (T_STELLAR_AGE_ENTRY) {-0, -0, NULL, -0.00, -0.00, -0.00};
+    return (T_STELLAR_AGE_ENTRY) {-1, -1, -1, -1.00, -1.00, -1.00};
 }
 
 static T_STELLAR_CHARS_ENTRY star_generate_characteristics(double mass)
@@ -245,18 +311,78 @@ static T_STELLAR_CHARS_ENTRY star_generate_characteristics(double mass)
         {-0.0, "XX", -0, -0.0, -0.0, -0.0, -0.0, -0.0};
 }
 
+#define LETTER_CHUNK NAME_SIZE/2
+#define NUMBER_CHUNK NAME_SIZE/2
+
+void star_generate_name(char* star_name)
+{
+    char name[2 * NAME_SIZE + 1] = "";
+    char char_holder = 'A';
+    for (int i = 0; i < NAME_SIZE; i++)
+    {
+        char_holder = STAR_LETTERS[rand() % STAR_LETTERS_SIZE];
+        name[i] = char_holder;
+    }
+    for (int i = 0; i < NAME_SIZE; i++)
+    {
+        char_holder = STAR_NUMBERS[rand() % STAR_NUMBERS_SIZE];
+        name[NAME_SIZE + i] = char_holder;
+    }
+    name[2 * NAME_SIZE] = '\0';
+    star_name = name;
+}
+
+T_STAR star_generate_star(void)
+{
+    T_STAR star;
+    star_generate_name(&star.name);
+    star.mass = star_generate_mass();
+    
+    T_STELLAR_AGE_ENTRY star_age_roll = star_generate_age();
+    star.population = star_age_roll.population;
+    star.base_age = star_age_roll.base_age;
+    star.step_a = star_age_roll.step_a;
+    star.step_b = star_age_roll.step_b;
+
+    T_STELLAR_CHARS_ENTRY star_chars_roll =
+        star_generate_characteristics(star.mass);
+    star.type = star_chars_roll.type;
+    star.temp = star_chars_roll.temp;
+    star.l_min = star_chars_roll.l_min;
+    star.l_max = star_chars_roll.l_max;
+    star.main_span = star_chars_roll.main_span;
+    star.subgiant_span = star_chars_roll.subgiant_span;
+    star.giant_span = star_chars_roll.giant_span;
+
+    return star;
+}
+
+void star_printf(T_STAR star)
+{
+    LOGI("Star Details");
+    LOGP("Name: %s", star.name);
+    LOGR("Mass: %.2f solar masses", star.mass);
+    LOGGR("Population: %u", star.population);
+    LOGGR("Base Age: %.2f billion years", star.base_age);
+    LOGGR("Step A: %.2f", star.step_a);
+    LOGGR("Step B: %.2f", star.step_b);
+    LOGB("Type: %s", star.type);
+    LOGR("Temperature: %d K", star.temp);
+    LOGGR("Luminosity Min: %.4f", star.l_min);
+    LOGGR("Luminosity Max: %.4f", star.l_max);
+    LOGGR("Main Sequence Span: %.2f billion years", star.main_span);
+    LOGGR("Subgiant Span: %.2f billion years", star.subgiant_span);
+    LOGGR("Giant Span: %.2f billion years", star.giant_span);
+}
 /******************************************************************************
 *                                Main Function                                *
 ******************************************************************************/
-int main(void) {
+int main(void)
+{
     init_dice();
 
-    double mass = get_stellar_mass();
-    if (mass > 0) {
-        printf("Generated stellar mass: %.2f solar masses\n", mass);
-    } else {
-        printf("Error generating stellar mass.\n");
-    }
+    T_STAR star = star_generate_star();
+    star_printf(star);
 
     return 0;
 }
